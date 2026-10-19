@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('nama');
             $table->enum('kategori', ['makanan', 'minuman']);
             $table->unsignedInteger('harga');
+            $table->string('gambar')->nullable();
             $table->unsignedInteger('stok')->default(0);
             $table->boolean('is_available')->default(true);
             $table->timestamps();

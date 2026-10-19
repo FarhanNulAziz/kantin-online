@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['nama', 'kategori', 'harga', 'stok', 'is_available'])]
+#[Fillable(['nama', 'kategori', 'gambar', 'harga', 'stok', 'is_available'])]
 class Menu extends Model
 {
     protected function casts(): array
@@ -16,6 +17,13 @@ class Menu extends Model
             'stok' => 'integer',
             'is_available' => 'boolean',
         ];
+    }
+
+    protected function gambarUrl(): Attribute
+    {
+        return Attribute::get(
+            fn () => $this->gambar ? asset('storage/' . $this->gambar) : null
+        );
     }
 
     public function orderItems(): HasMany
