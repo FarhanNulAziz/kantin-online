@@ -1,16 +1,26 @@
 <?php
 
+use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\CartController;
+use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\MenuController;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', [CatalogController::class, 'index'])->name('catalog');
+
+Route::prefix('cart')->name('cart.')->group(function () {
+    Route::get('/', [CartController::class, 'index'])->name('index');
+    Route::post('/add/{menu}', [CartController::class, 'add'])->name('add');
+    Route::patch('/{menu}', [CartController::class, 'update'])->name('update');
+    Route::delete('/{menu}', [CartController::class, 'remove'])->name('remove');
+    Route::delete('/', [CartController::class, 'clear'])->name('clear');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn() => request()->user()->isAdmin()
+    ? redirect()->route('admin.menus.index')
+    : redirect()->route('catalog'))
+    ->middleware('auth')
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -18,10 +28,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', fn () => redirect()->route('admin.menus.index'))->name('dashboard');
+    Route::get('/', fn() => redirect()->route('admin.menus.index'))->name('dashboard');
 
     Route::resource('menus', MenuController::class)->except('show');
     Route::patch('menus/{menu}/toggle', [MenuController::class, 'toggle'])->name('menus.toggle');

@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
         $admin->role = 'admin';
         $admin->save();
         User::create([
-            'name' => 'Customer Contoh',
+            'name' => 'Customer',
             'email' => 'customer@gmail.com',
             'no_hp' => '081298765432',
             'password' => Hash::make('customer1234'),
