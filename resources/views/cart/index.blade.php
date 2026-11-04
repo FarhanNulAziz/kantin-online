@@ -179,6 +179,72 @@
             <aside class="bg-white rounded-3xl border border-emerald-100 shadow-sm p-5 sm:p-6 lg:sticky lg:top-28">
                 <h2 class="font-extrabold text-forest-900 text-base mb-4">Ringkasan Pesanan</h2>
 
+                <div class="mb-5">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tipe Pesanan</h3>
+                        @if ($isFull)
+                            <span
+                                class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">Kantin
+                                penuh</span>
+                        @endif
+                    </div>
+
+                    @if ($isFull)
+                        <p class="mb-2 text-[11px] text-amber-700">Makan di tempat dinonaktifkan. Silakan pilih bungkus /
+                            dijemput.</p>
+                    @endif
+
+                    <form method="POST" action="{{ route('cart.order-type') }}">
+                        @csrf
+                        @method('PATCH')
+                        <div class="grid grid-cols-2 gap-2">
+                            <label
+                                class="relative flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition
+                                    {{ $isFull
+                                        ? 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                                        : ($orderType === 'dine_in'
+                                            ? 'cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500'
+                                            : 'cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-emerald-300') }}">
+                                <input type="radio" name="order_type" value="dine_in" class="sr-only"
+                                    @checked($orderType === 'dine_in') @disabled($isFull)
+                                    onchange="this.form.submit()">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M4 10h16M6 10V7a2 2 0 012-2h8a2 2 0 012 2v3M7 10v10m10-10v10"
+                                        stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+                                </svg>
+                                <span class="text-xs font-bold">Makan di Tempat</span>
+                                @if ($isFull)
+                                    <span class="text-[10px] font-semibold">Penuh</span>
+                                @endif
+                            </label>
+
+                            <label
+                                class="relative flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-center transition
+                                    {{ $orderType === 'takeaway'
+                                        ? 'cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-500'
+                                        : 'cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-emerald-300' }}">
+                                <input type="radio" name="order_type" value="takeaway" class="sr-only"
+                                    @checked($orderType === 'takeaway') onchange="this.form.submit()">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" stroke-linecap="round"
+                                        stroke-linejoin="round" stroke-width="1.8" />
+                                </svg>
+                                <span class="text-xs font-bold">Bungkus / Diambil</span>
+                            </label>
+                        </div>
+                    </form>
+
+                    @if ($orderType)
+                        <p class="mt-2 text-[11px] text-slate-400">Pilihan tersimpan:
+                            <span class="font-semibold text-emerald-700">
+                                {{ $orderType === 'dine_in' ? 'Makan di tempat' : 'Bungkus / dijemput' }}
+                            </span>
+                        </p>
+                    @else
+                        <p class="mt-2 text-[11px] text-slate-400">Pilih tipe pesanan sebelum checkout.</p>
+                    @endif
+                </div>
+
                 <dl class="space-y-3 text-sm">
                     <div class="flex justify-between text-slate-600">
                         <dt>Jumlah item</dt>
