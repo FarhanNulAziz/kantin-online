@@ -15,6 +15,7 @@ class MenuController extends Controller
     {
         $menus = Menu::query()
             ->when($request->kategori, fn($q, $k) => $q->where('kategori', $k))
+            ->when($request->q, fn($q, $s) => $q->where('nama', 'like', '%' . $s . '%'))
             ->orderBy('kategori')
             ->orderBy('nama')
             ->paginate(10)

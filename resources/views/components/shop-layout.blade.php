@@ -70,7 +70,7 @@
 
                 @auth
                     @if (auth()->user()->isAdmin())
-                        <a href="{{ route('admin.menus.index') }}"
+                        <a href="{{ route('admin.dashboard') }}"
                             class="text-xs sm:text-sm font-semibold text-slate-600 hover:text-emerald-600 px-2 py-2">Admin</a>
                     @endif
                     <form method="POST" action="{{ route('logout') }}">

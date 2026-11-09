@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\CanteenStatusController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MenuController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
@@ -11,13 +13,14 @@ Route::get('/', [CatalogController::class, 'index'])->name('catalog');
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
     Route::post('/add/{menu}', [CartController::class, 'add'])->name('add');
+    Route::patch('/order-type', [CartController::class, 'updateOrderType'])->name('order-type');
     Route::patch('/{menu}', [CartController::class, 'update'])->name('update');
     Route::delete('/{menu}', [CartController::class, 'remove'])->name('remove');
     Route::delete('/', [CartController::class, 'clear'])->name('clear');
 });
 
 Route::get('/dashboard', fn() => request()->user()->isAdmin()
-    ? redirect()->route('admin.menus.index')
+    ? redirect()->route('admin.dashboard')
     : redirect()->route('catalog'))
     ->middleware('auth')
     ->name('dashboard');
@@ -31,7 +34,8 @@ Route::middleware('auth')->group(function () {
 require __DIR__ . '/auth.php';
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', fn() => redirect()->route('admin.menus.index'))->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::patch('canteen-status', [CanteenStatusController::class, 'update'])->name('canteen-status.update');
 
     Route::resource('menus', MenuController::class)->except('show');
     Route::patch('menus/{menu}/toggle', [MenuController::class, 'toggle'])->name('menus.toggle');

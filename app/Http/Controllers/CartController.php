@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CanteenStatus;
 use App\Models\Menu;
 use App\Services\Cart;
 use Illuminate\Http\RedirectResponse;
@@ -14,10 +15,41 @@ class CartController extends Controller
 
     public function index(): View
     {
+        $isFull = CanteenStatus::isFull();
+        $orderType = session('order_type');
+
+        if (! in_array($orderType, ['dine_in', 'takeaway'], true)) {
+            $orderType = null;
+        }
+
+        if ($isFull && $orderType === 'dine_in') {
+            session()->forget('order_type');
+            $orderType = null;
+        }
+
         return view('cart.index', [
             'items' => Cart::items(),
             'total' => Cart::total(),
+            'isFull' => $isFull,
+            'orderType' => $orderType,
         ]);
+    }
+
+    public function updateOrderType(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'order_type' => ['required', 'in:dine_in,takeaway'],
+        ]);
+
+        if ($data['order_type'] === 'dine_in' && CanteenStatus::isFull()) {
+            return back()->with('error', 'Kantin sedang penuh. Silakan pilih bungkus / dijemput.');
+        }
+
+        session(['order_type' => $data['order_type']]);
+
+        $label = $data['order_type'] === 'dine_in' ? 'Makan di tempat' : 'Bungkus / dijemput';
+
+        return back()->with('success', "Tipe pesanan disimpan: {$label}.");
     }
 
     public function add(Request $request, Menu $menu): RedirectResponse
