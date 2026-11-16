@@ -139,12 +139,14 @@
             </dl>
 
             @if ($order->payment_method === 'online' && $order->payment_status === 'pending')
-                {{-- TODO W7: tampilkan tombol / panggil Midtrans Snap di sini saat pembayaran online aktif. --}}
-                <div class="mt-5 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
-                    <p class="text-sm font-bold text-sky-900">Pembayaran online menyusul</p>
-                    <p class="text-[11px] text-sky-800 mt-1 leading-relaxed">
-                        Pembayaran online (Midtrans) diaktifkan pada W7. Pesanan sudah tersimpan dengan status menunggu
-                        pembayaran.
+                <div class="mt-5 space-y-3">
+                    <button id="pay-button" type="button"
+                        class="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-forest-900 hover:bg-forest-800 active:bg-forest-700 text-white font-extrabold text-sm transition-colors shadow-md shadow-emerald-900/10">
+                        Bayar Sekarang
+                    </button>
+                    <p id="pay-message" class="text-xs text-slate-600"></p>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Status pembayaran akan diperbarui otomatis setelah pembayaran dikonfirmasi.
                     </p>
                 </div>
             @elseif ($order->payment_method === 'cod')
@@ -158,4 +160,66 @@
             @endif
         </aside>
     </div>
+
+    @if ($order->payment_method === 'online' && $order->payment_status === 'pending')
+        <script src="https://app.sandbox.midtrans.com/snap/snap.js"
+            data-client-key="{{ config('services.midtrans.client_key') }}"></script>
+        <script>
+            (function () {
+                const payButton = document.getElementById('pay-button');
+                const payMessage = document.getElementById('pay-message');
+                if (!payButton) return;
+
+                payButton.addEventListener('click', async function () {
+                    payButton.disabled = true;
+                    payMessage.textContent = 'Memproses pembayaran...';
+
+                    try {
+                        const response = await fetch('{{ route('orders.pay', $order) }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            },
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+
+                        if (!response.ok || !data.token) {
+                            payMessage.textContent = data.message || 'Gagal memulai pembayaran. Silakan coba lagi.';
+                            payButton.disabled = false;
+                            return;
+                        }
+
+                        window.snap.pay(data.token, {
+                            onSuccess: function () {
+                                // TODO W8: status final diperbarui oleh webhook.
+                                payMessage.textContent = 'Pembayaran diterima. Memuat ulang...';
+                                window.location.reload();
+                            },
+                            onPending: function () {
+                                // TODO W8: status final diperbarui oleh webhook.
+                                payMessage.textContent = 'Pembayaran tertunda. Memuat ulang...';
+                                window.location.reload();
+                            },
+                            onError: function () {
+                                // TODO W8: status final diperbarui oleh webhook.
+                                payMessage.textContent = 'Terjadi kesalahan pembayaran. Memuat ulang...';
+                                window.location.reload();
+                            },
+                            onClose: function () {
+                                // TODO W8: status final diperbarui oleh webhook.
+                                payMessage.textContent = 'Jendela pembayaran ditutup. Memuat ulang...';
+                                window.location.reload();
+                            }
+                        });
+                    } catch (e) {
+                        payMessage.textContent = 'Gagal memulai pembayaran. Silakan coba lagi.';
+                        payButton.disabled = false;
+                    }
+                });
+            })();
+        </script>
+    @endif
 </x-shop-layout>

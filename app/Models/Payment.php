@@ -12,9 +12,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'payment_type',
     'transaction_status',
     'snap_token',
+    'jumlah',
 ])]
 class Payment extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'jumlah' => 'integer',
+        ];
+    }
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

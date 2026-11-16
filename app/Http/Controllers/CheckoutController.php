@@ -132,7 +132,6 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->with('error', $result['error']);
         }
 
-        // TODO W7: integrasi Midtrans Snap untuk pesanan online dengan payment_status = pending.
         session()->forget(['cart', 'order_type']);
 
         return redirect()->route('orders.show', $result['order'])
