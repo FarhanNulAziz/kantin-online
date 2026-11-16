@@ -5,6 +5,8 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\MenuController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +31,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
 });
 
 require __DIR__ . '/auth.php';

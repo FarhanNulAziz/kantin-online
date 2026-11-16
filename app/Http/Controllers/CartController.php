@@ -32,6 +32,7 @@ class CartController extends Controller
             'total' => Cart::total(),
             'isFull' => $isFull,
             'orderType' => $orderType,
+            'codMax' => (int) config('kantin.cod_max_amount'),
         ]);
     }
 
