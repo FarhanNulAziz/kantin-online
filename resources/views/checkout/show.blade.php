@@ -58,6 +58,11 @@
                                             {{ $item['qty'] }} × Rp{{ number_format($menu->harga, 0, ',', '.') }}
                                         </span>
                                     </div>
+                                    @if ($item['note'])
+                                        <p class="mt-2 text-[11px] text-slate-600 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                                            <span class="font-bold text-slate-500">Catatan:</span> {{ $item['note'] }}
+                                        </p>
+                                    @endif
                                 </div>
 
                                 <div class="text-right shrink-0">
@@ -109,7 +114,7 @@
                                     @if ($codAllowed)
                                         Bayar saat mengambil pesanan.
                                     @else
-                                        Tidak tersedia karena total melebihi batas COD
+                                        Tidak tersedia karena subtotal menu melebihi batas COD
                                         Rp{{ number_format($codMax, 0, ',', '.') }}.
                                     @endif
                                 </span>
@@ -126,8 +131,8 @@
                             </span>
                             <span class="min-w-0">
                                 <span class="block text-sm font-bold">Online</span>
-                                <span class="block text-[11px] mt-0.5">Pembayaran online (Midtrans) aktif pada
-                                    W7.</span>
+                                <span class="block text-[11px] mt-0.5">Bayar lewat QRIS, e-wallet, atau transfer
+                                    bank.</span>
                             </span>
                         </label>
                     </div>
@@ -139,7 +144,11 @@
                     </div>
                     <div class="flex justify-between text-slate-600">
                         <dt>Subtotal</dt>
-                        <dd class="font-semibold text-slate-800">Rp{{ number_format($total, 0, ',', '.') }}</dd>
+                        <dd class="font-semibold text-slate-800">Rp{{ number_format($subtotal, 0, ',', '.') }}</dd>
+                    </div>
+                    <div class="flex justify-between text-slate-600">
+                        <dt>Biaya admin</dt>
+                        <dd class="font-semibold text-slate-800">Rp{{ number_format($adminFee, 0, ',', '.') }}</dd>
                     </div>
                     <div class="pt-3 border-t border-slate-100 flex justify-between items-baseline">
                         <dt class="font-bold text-slate-800">Total</dt>

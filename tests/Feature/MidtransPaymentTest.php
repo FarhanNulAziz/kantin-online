@@ -8,7 +8,6 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\MidtransService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
 use Tests\TestCase;
 
 class MidtransPaymentTest extends TestCase
@@ -20,11 +19,11 @@ class MidtransPaymentTest extends TestCase
         $user = User::factory()->create();
         $order = $this->makeOnlinePendingOrder($user);
 
-        $this->mock(MidtransService::class, function ($mock) {
-            $mock->shouldReceive('createSnapToken')->once()->andReturnUsing(function (Order $order) {
-                $order->setAttribute('_midtrans_order_id', 'KANTIN-'.$order->id.'-123456');
-                return 'snap-token-123';
-            });
+        $this->mock(MidtransService::class, function ($mock) use ($order) {
+            $mock->shouldReceive('createSnapToken')->once()->andReturn([
+                'token' => 'snap-token-123',
+                'order_id' => 'KANTIN-'.$order->id.'-123456',
+            ]);
         });
 
         $response = $this->actingAs($user)->postJson(route('orders.pay', $order));
@@ -108,14 +107,15 @@ class MidtransPaymentTest extends TestCase
             'user_id' => $user->id,
             'order_type' => 'takeaway',
             'payment_method' => 'online',
+            'subtotal' => 30000,
+            'biaya_admin' => 2000,
             'total_harga' => 32000,
             'payment_status' => 'pending',
             'order_status' => 'baru',
         ]);
         $order->items()->create(['menu_id' => $menu->id, 'qty' => 2, 'harga_satuan' => 15000]);
-        $order->setAttribute('biaya_admin', 2000);
 
-        $service = new MidtransService();
+        $service = new MidtransService;
         $payload = $service->buildPayload($order);
 
         $sum = 0;
@@ -125,6 +125,7 @@ class MidtransPaymentTest extends TestCase
 
         $this->assertSame(32000, $payload['transaction_details']['gross_amount']);
         $this->assertSame($payload['transaction_details']['gross_amount'], $sum);
+        $this->assertCount(2, $payload['item_details']);
         $this->assertSame('ADMIN-FEE', $payload['item_details'][1]['id']);
         $this->assertSame(2000, $payload['item_details'][1]['price']);
         $this->assertLessThanOrEqual(50, mb_strlen($payload['item_details'][0]['name']));
@@ -151,6 +152,26 @@ class MidtransPaymentTest extends TestCase
         $response = $this->actingAs($user)->postJson(route('orders.pay', $order));
 
         $response->assertOk()->assertJson(['token' => 'reuse-token']);
+        $this->assertSame(1, Payment::where('order_id', $order->id)->count());
+    }
+
+    public function test_two_pay_calls_create_only_one_payment(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->makeOnlinePendingOrder($user);
+
+        $this->mock(MidtransService::class, function ($mock) use ($order) {
+            $mock->shouldReceive('createSnapToken')->once()->andReturn([
+                'token' => 'snap-token-123',
+                'order_id' => 'KANTIN-'.$order->id.'-123456',
+            ]);
+        });
+
+        $first = $this->actingAs($user)->postJson(route('orders.pay', $order));
+        $second = $this->postJson(route('orders.pay', $order));
+
+        $first->assertOk()->assertJson(['token' => 'snap-token-123']);
+        $second->assertOk()->assertJson(['token' => 'snap-token-123']);
         $this->assertSame(1, Payment::where('order_id', $order->id)->count());
     }
 
@@ -182,6 +203,8 @@ class MidtransPaymentTest extends TestCase
             'user_id' => $user->id,
             'order_type' => 'takeaway',
             'payment_method' => 'online',
+            'subtotal' => 9000,
+            'biaya_admin' => 1000,
             'total_harga' => 10000,
             'payment_status' => 'pending',
             'order_status' => 'baru',

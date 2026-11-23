@@ -7,6 +7,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,12 +17,13 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [CartController::class, 'index'])->name('index');
     Route::post('/add/{menu}', [CartController::class, 'add'])->name('add');
     Route::patch('/order-type', [CartController::class, 'updateOrderType'])->name('order-type');
+    Route::patch('/note/{menu}', [CartController::class, 'updateNote'])->name('note');
     Route::patch('/{menu}', [CartController::class, 'update'])->name('update');
     Route::delete('/{menu}', [CartController::class, 'remove'])->name('remove');
     Route::delete('/', [CartController::class, 'clear'])->name('clear');
 });
 
-Route::get('/dashboard', fn() => request()->user()->isAdmin()
+Route::get('/dashboard', fn () => request()->user()->isAdmin()
     ? redirect()->route('admin.dashboard')
     : redirect()->route('catalog'))
     ->middleware('auth')
@@ -34,11 +36,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-    Route::post('/orders/{order}/pay', [\App\Http\Controllers\PaymentController::class, 'pay'])->name('orders.pay');
+    Route::post('/orders/{order}/pay', [PaymentController::class, 'pay'])->name('orders.pay');
     Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';
 
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');

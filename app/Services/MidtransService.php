@@ -16,14 +16,16 @@ class MidtransService
         Config::$is3ds = true;
     }
 
-    public function createSnapToken(Order $order): string
+    /** @return array{token: string, order_id: string} */
+    public function createSnapToken(Order $order): array
     {
         $params = $this->buildPayload($order);
         $token = Snap::getSnapToken($params);
 
-        $order->setAttribute('_midtrans_order_id', $params['transaction_details']['order_id']);
-
-        return (string) $token;
+        return [
+            'token' => (string) $token,
+            'order_id' => $params['transaction_details']['order_id'],
+        ];
     }
 
     public function buildPayload(Order $order): array
@@ -43,7 +45,7 @@ class MidtransService
             ];
         }
 
-        $biayaAdmin = (int) ($order->biaya_admin ?? 0);
+        $biayaAdmin = (int) $order->biaya_admin;
         if ($biayaAdmin > 0) {
             $itemDetails[] = [
                 'id' => 'ADMIN-FEE',

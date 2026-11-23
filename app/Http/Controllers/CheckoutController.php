@@ -23,13 +23,16 @@ class CheckoutController extends Controller
         }
 
         $codMax = (int) config('kantin.cod_max_amount');
+        $subtotal = $checkout['subtotal'];
 
         return view('checkout.show', [
             'items' => $checkout['items'],
-            'total' => $checkout['total'],
+            'subtotal' => $subtotal,
+            'adminFee' => Cart::adminFee(),
+            'total' => Cart::grandTotal($subtotal),
             'orderType' => $checkout['orderType'],
             'codMax' => $codMax,
-            'codAllowed' => $checkout['total'] <= $codMax,
+            'codAllowed' => $subtotal <= $codMax,
         ]);
     }
 
@@ -44,10 +47,10 @@ class CheckoutController extends Controller
         $paymentMethod = $request->validated('payment_method');
         $codMax = (int) config('kantin.cod_max_amount');
 
-        if ($paymentMethod === 'cod' && $checkout['total'] > $codMax) {
+        if ($paymentMethod === 'cod' && $checkout['subtotal'] > $codMax) {
             return redirect()->route('checkout.show')->with(
                 'error',
-                'Total pesanan melebihi batas COD Rp'.number_format($codMax, 0, ',', '.').'. Silakan pilih pembayaran online.'
+                'Subtotal menu melebihi batas COD Rp'.number_format($codMax, 0, ',', '.').'. Silakan pilih pembayaran online.'
             );
         }
 
@@ -62,9 +65,9 @@ class CheckoutController extends Controller
 
             $items = [];
             $issues = [];
-            $total = 0;
+            $subtotal = 0;
 
-            foreach ($cart as $menuId => $qty) {
+            foreach ($cart as $menuId => $entry) {
                 $menu = $menus->get($menuId);
 
                 if (! $menu) {
@@ -79,17 +82,18 @@ class CheckoutController extends Controller
                     continue;
                 }
 
-                if ($menu->stok < $qty) {
+                if ($menu->stok < $entry['qty']) {
                     $issues[] = "Stok {$menu->nama} tidak mencukupi (tersisa {$menu->stok}).";
 
                     continue;
                 }
 
-                $total += $menu->harga * $qty;
+                $subtotal += $menu->harga * $entry['qty'];
                 $items[] = [
                     'menu' => $menu,
-                    'qty' => (int) $qty,
+                    'qty' => $entry['qty'],
                     'harga_satuan' => $menu->harga,
+                    'catatan' => $entry['note'],
                 ];
             }
 
@@ -97,20 +101,22 @@ class CheckoutController extends Controller
                 return ['error' => implode(' ', $issues)];
             }
 
-            if ($total === 0) {
+            if ($subtotal === 0) {
                 return ['error' => 'Keranjang belanja masih kosong.'];
             }
 
             // Harga bisa berubah sejak halaman checkout dibuka; validasi ulang batas COD.
-            if ($paymentMethod === 'cod' && $total > $codMax) {
-                return ['error' => 'Total pesanan melebihi batas COD Rp'.number_format($codMax, 0, ',', '.').'. Silakan pilih pembayaran online.'];
+            if ($paymentMethod === 'cod' && $subtotal > $codMax) {
+                return ['error' => 'Subtotal menu melebihi batas COD Rp'.number_format($codMax, 0, ',', '.').'. Silakan pilih pembayaran online.'];
             }
 
             $order = Order::create([
                 'user_id' => auth()->id(),
                 'order_type' => $checkout['orderType'],
                 'payment_method' => $paymentMethod,
-                'total_harga' => $total,
+                'subtotal' => $subtotal,
+                'biaya_admin' => Cart::adminFee(),
+                'total_harga' => Cart::grandTotal($subtotal),
                 'payment_status' => $paymentMethod === 'cod' ? 'cod_pending' : 'pending',
                 'order_status' => 'baru',
             ]);
@@ -120,6 +126,7 @@ class CheckoutController extends Controller
                     'menu_id' => $item['menu']->id,
                     'qty' => $item['qty'],
                     'harga_satuan' => $item['harga_satuan'],
+                    'catatan' => $item['catatan'],
                 ]);
 
                 $item['menu']->decrement('stok', $item['qty']);
@@ -141,7 +148,7 @@ class CheckoutController extends Controller
     /**
      * Validasi kondisi checkout dari session dan data menu di database.
      *
-     * @return array{items: Collection, total: int, orderType: string}|RedirectResponse
+     * @return array{items: Collection, subtotal: int, orderType: string}|RedirectResponse
      */
     private function resolveCheckout(): array|RedirectResponse
     {
@@ -187,7 +194,7 @@ class CheckoutController extends Controller
 
         return [
             'items' => $items,
-            'total' => (int) $items->sum('subtotal'),
+            'subtotal' => (int) $items->sum('subtotal'),
             'orderType' => $orderType,
         ];
     }

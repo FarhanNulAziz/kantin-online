@@ -27,9 +27,13 @@ class CartController extends Controller
             $orderType = null;
         }
 
+        $subtotal = Cart::subtotal();
+
         return view('cart.index', [
             'items' => Cart::items(),
-            'total' => Cart::total(),
+            'subtotal' => $subtotal,
+            'adminFee' => Cart::adminFee(),
+            'total' => Cart::grandTotal($subtotal),
             'isFull' => $isFull,
             'orderType' => $orderType,
             'codMax' => (int) config('kantin.cod_max_amount'),
@@ -55,7 +59,7 @@ class CartController extends Controller
 
     public function add(Request $request, Menu $menu): RedirectResponse
     {
-        $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_ITEM]]);
+        $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_ITEM]]);
 
         if (! $menu->is_available || $menu->stok < 1) {
             return back()->with('error', "{$menu->nama} sedang tidak tersedia.");
@@ -63,9 +67,10 @@ class CartController extends Controller
 
         $cart = Cart::all();
         $limit = min($menu->stok, self::MAX_PER_ITEM);
-        $new = ($cart[$menu->id] ?? 0) + (int) $request->input('qty', 1);
+        $entry = $cart[$menu->id] ?? ['qty' => 0, 'note' => null];
+        $new = $entry['qty'] + (int) $request->input('qty', 1);
 
-        $cart[$menu->id] = min($new, $limit);
+        $cart[$menu->id] = ['qty' => min($new, $limit), 'note' => $entry['note']];
         session(['cart' => $cart]);
 
         $msg = $new > $limit
@@ -77,19 +82,39 @@ class CartController extends Controller
 
     public function update(Request $request, Menu $menu): RedirectResponse
     {
-        $data = $request->validate(['qty' => ['required', 'integer', 'min:0', 'max:' . self::MAX_PER_ITEM]]);
+        $data = $request->validate(['qty' => ['required', 'integer', 'min:0', 'max:'.self::MAX_PER_ITEM]]);
 
         $cart = Cart::all();
 
-        if ($data['qty'] === 0) {
+        if ((int) $data['qty'] === 0) {
             unset($cart[$menu->id]);
         } else {
-            $cart[$menu->id] = min($data['qty'], $menu->stok, self::MAX_PER_ITEM);
+            $entry = $cart[$menu->id] ?? ['qty' => 0, 'note' => null];
+            $cart[$menu->id] = [
+                'qty' => min((int) $data['qty'], $menu->stok, self::MAX_PER_ITEM),
+                'note' => $entry['note'],
+            ];
         }
 
         session(['cart' => $cart]);
 
         return back();
+    }
+
+    public function updateNote(Request $request, Menu $menu): RedirectResponse
+    {
+        $data = $request->validate([
+            'note' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        if (! isset(Cart::all()[$menu->id])) {
+            return back()->with('error', 'Menu tidak ada di keranjang.');
+        }
+
+        $note = isset($data['note']) ? trim(strip_tags($data['note'])) : '';
+        Cart::setNote($menu, $note !== '' ? mb_substr($note, 0, 100) : null);
+
+        return back()->with('success', 'Catatan disimpan.');
     }
 
     public function remove(Menu $menu): RedirectResponse

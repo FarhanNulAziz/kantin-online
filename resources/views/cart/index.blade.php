@@ -86,6 +86,22 @@
                                                     Rp{{ number_format($menu->harga, 0, ',', '.') }} / item
                                                 </span>
                                             </div>
+
+                                            <form method="POST" action="{{ route('cart.note', $menu) }}"
+                                                class="mt-2 flex flex-wrap items-center gap-2">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="text" name="note" maxlength="100"
+                                                    value="{{ $item['note'] }}"
+                                                    placeholder="buat catatan"
+                                                    aria-label="Catatan untuk {{ $menu->nama }}"
+                                                    class="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] text-slate-700 placeholder:text-slate-400 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none">
+                                                <button type="submit"
+                                                    class="shrink-0 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 px-2 py-1 rounded-full hover:bg-emerald-50 transition">
+                                                    Simpan catatan
+                                                </button>
+                                            </form>
+                                            <p class="mt-1 text-[10px] text-slate-400"></p>
                                         </div>
                                     </div>
 
@@ -247,7 +263,11 @@
                     </div>
                     <div class="flex justify-between text-slate-600">
                         <dt>Subtotal</dt>
-                        <dd class="font-semibold text-slate-800">Rp{{ number_format($total, 0, ',', '.') }}</dd>
+                        <dd class="font-semibold text-slate-800">Rp{{ number_format($subtotal, 0, ',', '.') }}</dd>
+                    </div>
+                    <div class="flex justify-between text-slate-600">
+                        <dt>Biaya admin</dt>
+                        <dd class="font-semibold text-slate-800">Rp{{ number_format($adminFee, 0, ',', '.') }}</dd>
                     </div>
                     <div class="pt-3 border-t border-slate-100 flex justify-between items-baseline">
                         <dt class="font-bold text-slate-800">Total</dt>
@@ -256,7 +276,7 @@
                     </div>
                 </dl>
 
-                @php $codAllowed = $total <= $codMax; @endphp
+                @php $codAllowed = $subtotal <= $codMax; @endphp
                 <a href="{{ route('checkout.show') }}"
                     class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm py-3 rounded-full transition shadow-sm flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -273,6 +293,9 @@
                 <p
                     class="mt-1 text-[11px] text-center {{ $codAllowed ? 'text-emerald-700' : 'text-amber-700' }} font-semibold">
                     {{ $codAllowed ? 'Pesanan ini bisa dibayar COD atau online.' : 'Pesanan ini wajib dibayar online.' }}
+                </p>
+                <p class="mt-1 text-[10px] text-center text-slate-400">
+                    Batas COD Rp{{ number_format($codMax, 0, ',', '.') }} dihitung dari subtotal menu, tanpa biaya admin.
                 </p>
 
                 <form method="POST" action="{{ route('cart.clear') }}" class="mt-4">

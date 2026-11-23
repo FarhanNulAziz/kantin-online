@@ -84,6 +84,11 @@
                             <p class="text-xs text-slate-500 mt-1">
                                 {{ $item->qty }} × Rp{{ number_format($item->harga_satuan, 0, ',', '.') }}
                             </p>
+                            @if ($item->catatan)
+                                <p class="mt-2 text-[11px] text-slate-600 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                                    <span class="font-bold text-slate-500">Catatan:</span> {{ $item->catatan }}
+                                </p>
+                            @endif
                         </div>
 
                         <div class="text-right shrink-0">
@@ -96,11 +101,21 @@
                 @endforeach
             </ul>
 
-            <div class="px-5 py-4 border-t border-slate-100 flex justify-between items-baseline">
-                <span class="font-bold text-slate-800">Total</span>
-                <span class="text-xl font-extrabold text-forest-900">
-                    Rp{{ number_format($order->total_harga, 0, ',', '.') }}
-                </span>
+            <div class="px-5 py-4 border-t border-slate-100 space-y-2">
+                <div class="flex justify-between text-sm text-slate-600">
+                    <span>Subtotal</span>
+                    <span class="font-semibold text-slate-800">Rp{{ number_format($order->subtotal, 0, ',', '.') }}</span>
+                </div>
+                <div class="flex justify-between text-sm text-slate-600">
+                    <span>Biaya admin</span>
+                    <span class="font-semibold text-slate-800">Rp{{ number_format($order->biaya_admin, 0, ',', '.') }}</span>
+                </div>
+                <div class="pt-2 border-t border-slate-100 flex justify-between items-baseline">
+                    <span class="font-bold text-slate-800">Total</span>
+                    <span class="text-xl font-extrabold text-forest-900">
+                        Rp{{ number_format($order->total_harga, 0, ',', '.') }}
+                    </span>
+                </div>
             </div>
         </section>
 
@@ -156,6 +171,9 @@
                         Silakan bayar di kasir saat mengambil pesanan. Tunjukkan nomor pesanan
                         <span class="font-bold">{{ $nomorPesanan }}</span>.
                     </p>
+                    <p class="mt-2 text-sm font-bold text-amber-900">
+                        Nominal di kasir: Rp{{ number_format($order->total_harga, 0, ',', '.') }}
+                    </p>
                 </div>
             @endif
         </aside>
@@ -195,7 +213,7 @@
                         window.snap.pay(data.token, {
                             onSuccess: function () {
                                 // TODO W8: status final diperbarui oleh webhook.
-                                payMessage.textContent = 'Pembayaran diterima. Memuat ulang...';
+                                payMessage.textContent = 'Menunggu konfirmasi pembayaran...';
                                 window.location.reload();
                             },
                             onPending: function () {

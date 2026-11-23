@@ -21,7 +21,7 @@ class CheckoutTest extends TestCase
         $menu = $this->makeMenu(['harga' => 10000, 'stok' => 5]);
 
         $response = $this->actingAs($user)
-            ->withSession(['cart' => [$menu->id => 2], 'order_type' => 'takeaway'])
+            ->withSession(['cart' => [$menu->id => ['qty' => 2, 'note' => null]], 'order_type' => 'takeaway'])
             ->post(route('checkout.store'), ['payment_method' => 'cod']);
 
         $order = Order::firstOrFail();
@@ -30,7 +30,9 @@ class CheckoutTest extends TestCase
         $response->assertSessionMissing('cart');
         $response->assertSessionMissing('order_type');
 
-        $this->assertSame(20000, $order->total_harga);
+        $this->assertSame(20000, $order->subtotal);
+        $this->assertSame(1000, $order->biaya_admin);
+        $this->assertSame(21000, $order->total_harga);
         $this->assertSame('cod', $order->payment_method);
         $this->assertSame('cod_pending', $order->payment_status);
         $this->assertSame('baru', $order->order_status);
@@ -52,12 +54,12 @@ class CheckoutTest extends TestCase
         $menu = $this->makeMenu(['harga' => 20001, 'stok' => 5]);
 
         $response = $this->actingAs($user)
-            ->withSession(['cart' => [$menu->id => 1], 'order_type' => 'takeaway'])
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]], 'order_type' => 'takeaway'])
             ->post(route('checkout.store'), ['payment_method' => 'cod']);
 
         $response->assertRedirect(route('checkout.show'));
         $response->assertSessionHas('error');
-        $response->assertSessionHas('cart', [$menu->id => 1]);
+        $response->assertSessionHas('cart', [$menu->id => ['qty' => 1, 'note' => null]]);
         $this->assertDatabaseCount('orders', 0);
         $this->assertSame(5, $menu->fresh()->stok);
     }
@@ -76,11 +78,139 @@ class CheckoutTest extends TestCase
         $order = Order::firstOrFail();
 
         $response->assertRedirect(route('orders.show', $order));
-        $this->assertSame(20001, $order->total_harga);
+        $this->assertSame(20001, $order->subtotal);
+        $this->assertSame(1000, $order->biaya_admin);
+        $this->assertSame(21001, $order->total_harga);
         $this->assertSame('online', $order->payment_method);
         $this->assertSame('pending', $order->payment_status);
         $this->assertSame('baru', $order->order_status);
         $this->assertSame(4, $menu->fresh()->stok);
+    }
+
+    public function test_subtotal_19500_with_cod_is_accepted_and_total_is_20500(): void
+    {
+        config(['kantin.cod_max_amount' => 20000, 'kantin.admin_fee' => 1000]);
+
+        $user = User::factory()->create();
+        $menu = $this->makeMenu(['harga' => 19500, 'stok' => 5]);
+
+        $response = $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]], 'order_type' => 'takeaway'])
+            ->post(route('checkout.store'), ['payment_method' => 'cod']);
+
+        $order = Order::firstOrFail();
+
+        $response->assertRedirect(route('orders.show', $order));
+        $this->assertSame(19500, $order->subtotal);
+        $this->assertSame(1000, $order->biaya_admin);
+        $this->assertSame(20500, $order->total_harga);
+    }
+
+    public function test_admin_fee_is_saved_from_config(): void
+    {
+        config(['kantin.admin_fee' => 2500]);
+
+        $user = User::factory()->create();
+        $menu = $this->makeMenu(['harga' => 10000]);
+
+        $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]], 'order_type' => 'takeaway'])
+            ->post(route('checkout.store'), ['payment_method' => 'online']);
+
+        $order = Order::firstOrFail();
+
+        $this->assertSame(10000, $order->subtotal);
+        $this->assertSame(2500, $order->biaya_admin);
+        $this->assertSame(12500, $order->total_harga);
+    }
+
+    public function test_note_is_saved_to_order_item(): void
+    {
+        $user = User::factory()->create();
+        $menu = $this->makeMenu();
+
+        $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]], 'order_type' => 'takeaway'])
+            ->patch(route('cart.note', $menu), ['note' => 'tidak pedas']);
+
+        $this->post(route('checkout.store'), ['payment_method' => 'cod']);
+
+        $order = Order::firstOrFail();
+
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $order->id,
+            'menu_id' => $menu->id,
+            'catatan' => 'tidak pedas',
+        ]);
+    }
+
+    public function test_note_longer_than_100_characters_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        $menu = $this->makeMenu();
+
+        $response = $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => 'aman']], 'order_type' => 'takeaway'])
+            ->patch(route('cart.note', $menu), ['note' => str_repeat('a', 101)]);
+
+        $response->assertSessionHasErrors('note');
+        $this->assertSame('aman', session('cart')[$menu->id]['note']);
+    }
+
+    public function test_script_in_note_is_not_rendered_as_raw_html(): void
+    {
+        $user = User::factory()->create();
+        $menu = $this->makeMenu();
+        $rawNote = "pedas <script>alert('xss')</script> es dipisah";
+
+        $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]], 'order_type' => 'takeaway'])
+            ->patch(route('cart.note', $menu), ['note' => $rawNote]);
+
+        $this->post(route('checkout.store'), ['payment_method' => 'cod']);
+
+        $order = Order::firstOrFail();
+
+        $this->assertStringNotContainsString('<script>', $order->items()->firstOrFail()->catatan);
+
+        $this->actingAs($user)
+            ->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertDontSee($rawNote, false)
+            ->assertSee('Catatan:', false);
+    }
+
+    public function test_guest_can_save_note_but_checkout_redirects_to_login(): void
+    {
+        $menu = $this->makeMenu();
+
+        $response = $this->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => null]]])
+            ->patch(route('cart.note', $menu), ['note' => 'es dipisah']);
+
+        $response->assertRedirect();
+        $this->assertSame('es dipisah', session('cart')[$menu->id]['note']);
+
+        $this->get(route('checkout.show'))->assertRedirect(route('login'));
+    }
+
+    public function test_legacy_cart_format_still_checks_out(): void
+    {
+        $user = User::factory()->create();
+        $menu = $this->makeMenu(['harga' => 10000]);
+
+        $this->withSession(['cart' => [$menu->id => 1], 'order_type' => 'takeaway'])
+            ->get(route('cart.index'))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->withSession(['cart' => [$menu->id => 1], 'order_type' => 'takeaway'])
+            ->post(route('checkout.store'), ['payment_method' => 'online']);
+
+        $order = Order::firstOrFail();
+
+        $this->assertSame(10000, $order->subtotal);
+        $this->assertSame(1000, $order->biaya_admin);
+        $this->assertSame(11000, $order->total_harga);
     }
 
     public function test_checkout_page_renders_with_cod_disabled_above_limit(): void
@@ -95,8 +225,8 @@ class CheckoutTest extends TestCase
             ->get(route('checkout.show'))
             ->assertOk()
             ->assertSee('Buat Pesanan')
-            ->assertSee('wajib')
-            ->assertSee('Tidak tersedia karena total melebihi batas COD');
+            ->assertSee('Rp21.001')
+            ->assertSee('Tidak tersedia karena subtotal menu melebihi batas COD');
     }
 
     public function test_cart_page_shows_login_checkout_for_guest(): void
@@ -107,7 +237,9 @@ class CheckoutTest extends TestCase
             ->get(route('cart.index'))
             ->assertOk()
             ->assertSee('Login untuk Checkout')
-            ->assertSee('boleh COD atau online');
+            ->assertSee('bisa dibayar COD atau online')
+            ->assertSee('Biaya admin')
+            ->assertSee('dihitung dari subtotal menu');
     }
 
     public function test_guest_is_redirected_to_login(): void
@@ -185,6 +317,8 @@ class CheckoutTest extends TestCase
             'user_id' => $owner->id,
             'order_type' => 'takeaway',
             'payment_method' => 'cod',
+            'subtotal' => 10000,
+            'biaya_admin' => 0,
             'total_harga' => 10000,
             'payment_status' => 'cod_pending',
             'order_status' => 'baru',
@@ -205,7 +339,7 @@ class CheckoutTest extends TestCase
         $user = User::factory()->create();
         $menu = $this->makeMenu(['stok' => 5]);
 
-        $this->withSession(['cart' => [$menu->id => 1], 'order_type' => 'takeaway'])
+        $this->withSession(['cart' => [$menu->id => ['qty' => 1, 'note' => 'tanpa es']], 'order_type' => 'takeaway'])
             ->get(route('checkout.show'))
             ->assertRedirect(route('login'));
 
@@ -215,7 +349,7 @@ class CheckoutTest extends TestCase
         ]);
 
         $response->assertRedirect(route('checkout.show'));
-        $response->assertSessionHas('cart', [$menu->id => 1]);
+        $response->assertSessionHas('cart', [$menu->id => ['qty' => 1, 'note' => 'tanpa es']]);
         $response->assertSessionHas('order_type', 'takeaway');
     }
 
